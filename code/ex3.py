@@ -20,6 +20,34 @@ class Document(object):
         if key in self.word_to_freq:
             del self.word_to_freq[key]
 
+    def __len__(self):
+        return len(self.word_to_freq)
+
+    def __getitem__(self, word):
+        if word not in self.word_to_freq.keys():
+            return 0
+        return self.word_to_freq[word]
+
+    def keys(self):
+        return self.word_to_freq.keys()
+
+
+class EM(object):
+    def __init__(self, documents, all_develop_documents):
+        all_words = all_develop_documents.keys()
+        self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
+        self.document2t = {document: t for t, document in enumerate(documents)}
+
+        # dictionary where key is: (word_k,document_y) = frequency of word k in document y
+        self.n_t_k = {}
+        # dictionary represents length of document t
+        self.nt = {}
+        for document in self.document2t:
+            t = self.document2t[document]
+            for word in self.word2k:
+                self.n_t_k[(t, self.word2k[word])] = document[word]
+            self.nt[t] = len(document)
+
 
 def extract_topics(topics_file_path):
     topics = set()
@@ -66,7 +94,7 @@ def initilaization_preocess(develop_file_path, topics_file_path):
 
 def run():
     topics, documents, all_develop_documents = initilaization_preocess(develop_file_path, topics_file_path)
-    print(topics)
+    em_model = EM(documents=documents, all_develop_documents=all_develop_documents)
 
 
 if __name__ == "__main__":
