@@ -3,6 +3,7 @@ develop_file_path = "../develop.txt"
 topics_file_path = "../topics.txt"
 
 RARE_WORDS_THRESHOLD = 3
+CLUSTER_NUMBERS = 9
 
 
 class Document(object):
@@ -33,8 +34,9 @@ class Document(object):
 
 
 class EM(object):
-    def __init__(self, documents, all_develop_documents):
-        all_words = all_develop_documents.keys()
+    def __init__(self, documents, all_develop_documents, clusters_number=9):
+        self.clusters_number = clusters_number
+        self.number_of_documents = len(documents)
         self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
         self.document2t = {document: t for t, document in enumerate(documents)}
 
@@ -47,6 +49,12 @@ class EM(object):
             for word in self.word2k:
                 self.n_t_k[(t, self.word2k[word])] = document[word]
             self.nt[t] = len(document)
+
+        # initializing the model
+        self.w_ti = {}
+        for i in range(self.number_of_documents):
+            self.w_ti[i, i % self.clusters_number] = 1
+        
 
 
 def extract_topics(topics_file_path):
@@ -94,7 +102,7 @@ def initilaization_preocess(develop_file_path, topics_file_path):
 
 def run():
     topics, documents, all_develop_documents = initilaization_preocess(develop_file_path, topics_file_path)
-    em_model = EM(documents=documents, all_develop_documents=all_develop_documents)
+    em_model = EM(documents=documents, all_develop_documents=all_develop_documents, clusters_number=CLUSTER_NUMBERS)
 
 
 if __name__ == "__main__":
