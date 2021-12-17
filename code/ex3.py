@@ -1,9 +1,12 @@
-### TODO: change this initaliation to parameters
+# TODO: change this initialization to parameters
 develop_file_path = "../develop.txt"
 topics_file_path = "../topics.txt"
 
+# CONST
 RARE_WORDS_THRESHOLD = 3
-CLUSTER_NUMBERS = 9
+
+# TODO: When we will finish the implementation we need to normalize those arguments
+
 EPSILON = 0.000001
 LAMBDA_VALUE = 2
 
@@ -92,7 +95,7 @@ class EM(object):
                     numerator += self.w_t_i[t, category_idx] * self.n_t_k[t, k]
                     denominator += self.w_t_i[t, category_idx] * self.nt[t]
                 smooth_p_i_k = (numerator + self.lambda_value) / (
-                            denominator + self.vocabulary_size * self.lambda_value)
+                        denominator + self.vocabulary_size * self.lambda_value)
                 self.p_i_k[category_idx, k] = smooth_p_i_k
 
     def get_p_i_k(self):
@@ -154,3 +157,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+CLUSTER_NUMBERS = 9
