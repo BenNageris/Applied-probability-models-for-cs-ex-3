@@ -15,4 +15,3 @@ def max_z(p_ti:list[dict],n_tk:list[dict],alpha:list,t:int)
         max_z=max(max_z,Z(p_ti=p_ti,n_tk=n_tk,alpha=alpha,t=t,i=i))
     return max_z
 
-def wti
