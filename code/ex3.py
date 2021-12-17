@@ -1,9 +1,12 @@
+import numpy as np
+
 # TODO: change this initialization to parameters
 develop_file_path = "../develop.txt"
 topics_file_path = "../topics.txt"
 
 # CONST
 RARE_WORDS_THRESHOLD = 3
+CLUSTER_NUMBERS = 9
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
@@ -45,58 +48,46 @@ class EM(object):
         self.number_of_documents = len(documents)
         self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
         self.document2t = {document: t for t, document in enumerate(documents)}
-        self.clusters = list(range(0, clusters_number))
         self.vocabulary_size = len(all_develop_documents)
-        # dictionary where key is: (word_k,document_y) = frequency of word k in document y
-        self.n_t_k = {}
+        self.p_i_k = np.zeros((self.clusters_number, self.vocabulary_size))
+        self.alpha = np.zeros((self.clusters_number, 1))
+        self.epsilon = epsilon
+        self.lambda_value = lambda_value
+
+        # n_t_k - frequency of the word k in document t
+        self.n_t_k = np.zeros((self.number_of_documents, self.vocabulary_size))
         # dictionary represents length of document t
-        self.nt = {}
+        self.nt = np.zeros((self.number_of_documents, 1))
         for document in self.document2t:
             t = self.document2t[document]
             for word in self.word2k:
-                self.n_t_k[(t, self.word2k[word])] = document[word]
+                self.n_t_k[t][self.word2k[word]] = document[word]
             self.nt[t] = len(document)
 
         # initializing the model
-        self.w_t_i = {}
-        for i in range(self.number_of_documents):
-            for j in self.clusters:
-                self.w_t_i[i, j] = 0
+        self.w_t_i = np.zeros((self.number_of_documents, self.clusters_number))
         # 1st to cluster 1, 2nd to cluster 2 ... idx % cluster number initialization
         for i in range(self.number_of_documents):
-            self.w_t_i[i, i % self.clusters_number] = 1
-
-        self.p_i_k = {}
-        self.alpha = [0] * self.clusters_number
-        self.epsilon = epsilon
-        self.lambda_value = lambda_value
+            self.w_t_i[i][i % self.clusters_number] = 1
 
         # do m_step
         self.m_step()
 
     def m_step(self):
         # alpha computation
-        self.alpha = [0] * self.clusters_number
-        for t, cluster_idx in self.w_t_i:
-            self.alpha[cluster_idx] += self.w_t_i[t, cluster_idx]
-        self.alpha = [alpha / self.number_of_documents for alpha in self.alpha]
-        self.alpha = [max(self.epsilon, alpha) for alpha in self.alpha]
-        alpha_sum = sum(self.alpha)
-        self.alpha = [alpha / alpha_sum for alpha in self.alpha]
 
-        # P_i_k computation
+        self.alpha = np.zeros((self.clusters_number, 1))
+        # summing by column (column is classification)
+        self.alpha = np.sum(self.w_t_i, axis=0) / self.number_of_documents
+        self.alpha = np.maximum(self.alpha, self.epsilon)
+        # if we changed to at least one of the alphas we need to normalize in order it to be summed up to 1
+        self.alpha /= np.sum(self.alpha)
+
         # p_i_k is the probability for word k when we assume we re in category i : p(w_k | c_i)
-        for word in self.word2k:
-            k = self.word2k[word]
-            for category_idx in self.clusters:
-                numerator = 0
-                denominator = 0
-                for t in range(self.number_of_documents):
-                    numerator += self.w_t_i[t, category_idx] * self.n_t_k[t, k]
-                    denominator += self.w_t_i[t, category_idx] * self.nt[t]
-                smooth_p_i_k = (numerator + self.lambda_value) / (
-                        denominator + self.vocabulary_size * self.lambda_value)
-                self.p_i_k[category_idx, k] = smooth_p_i_k
+        numerator = np.dot(self.w_t_i.T, self.n_t_k) + self.lambda_value  # -> output size |cluster| X |vocab|
+        denominator = np.dot(self.w_t_i.T,
+                             self.nt) + self.vocabulary_size * self.lambda_value  # -> output size |cluster| x |1|
+        self.p_i_k = numerator / denominator
 
     def get_p_i_k(self):
         return self.p_i_k
@@ -152,9 +143,8 @@ def run():
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
-    print(em_model.p_i_k)
+    print(np.max(em_model.p_i_k))
 
 
 if __name__ == "__main__":
     run()
-CLUSTER_NUMBERS = 9
