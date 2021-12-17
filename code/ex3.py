@@ -93,7 +93,16 @@ class EM(object):
         logged_alpha = np.log(self.alpha)  # |cluster| x 1
         right_hand = np.dot(self.n_t_k, np.log(self.p_i_k.T))  # |document| x |cluster|
         left_hand = np.broadcast_to(logged_alpha, (self.number_of_documents, self.clusters_number))
-        return right_hand + left_hand
+        self.z = right_hand + left_hand  # |document| x |cluster|
+
+    def m(self):
+        # find max z for each classification
+        self.m = np.max(self.z, axis=1)  # |document| x |1|
+        print(self.m)
+
+    def e_step(self):
+        self.z()
+        self.m()
 
     def get_p_i_k(self):
         return self.p_i_k
@@ -150,7 +159,7 @@ def run():
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
     # print(np.max(em_model.p_i_k))
-    print(np.max(em_model.z()))
+    em_model.e_step()
 
 
 if __name__ == "__main__":
