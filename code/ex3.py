@@ -89,6 +89,12 @@ class EM(object):
                              self.nt) + self.vocabulary_size * self.lambda_value  # -> output size |cluster| x |1|
         self.p_i_k = numerator / denominator
 
+    def z(self):
+        logged_alpha = np.log(self.alpha)  # |cluster| x 1
+        right_hand = np.dot(self.n_t_k, np.log(self.p_i_k.T))  # |document| x |cluster|
+        left_hand = np.broadcast_to(logged_alpha, (self.number_of_documents, self.clusters_number))
+        return right_hand + left_hand
+
     def get_p_i_k(self):
         return self.p_i_k
 
@@ -143,7 +149,8 @@ def run():
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
-    print(np.max(em_model.p_i_k))
+    # print(np.max(em_model.p_i_k))
+    print(np.max(em_model.z()))
 
 
 if __name__ == "__main__":
