@@ -94,15 +94,27 @@ class EM(object):
         right_hand = np.dot(self.n_t_k, np.log(self.p_i_k.T))  # |document| x |cluster|
         left_hand = np.broadcast_to(logged_alpha, (self.number_of_documents, self.clusters_number))
         self.z = right_hand + left_hand  # |document| x |cluster|
-
+        return self.z
     def m(self):
         # find max z for each classification
         self.m = np.max(self.z, axis=1)  # |document| x |1|
         print(self.m)
-
-    def e_step(self):
-        self.z()
-        self.m()
+        return self.m
+    def e_step(self,k=10):
+        print("E_step")
+        z=self.z()
+        m=self.m()
+        a=[m for i in range(z.shape[1])]
+        #use vector m to build matrix the shape of z
+        m_arr=np.column_stack(a)
+        exponent=z-m_arr
+        #prune all elements smaller from k
+        exponent=np.where(exponent<-k,0,exponent)
+        e_mat=np.exp(exponent)
+        #sum by rows
+        e_sum=np.sum(e_mat,axis=1)
+        e_mat=e_mat/np.column_stack([e_sum for i in range(e_mat.shape[1])])
+        return e_mat
 
     def get_p_i_k(self):
         return self.p_i_k

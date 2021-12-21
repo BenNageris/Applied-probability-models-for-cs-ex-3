@@ -25,4 +25,4 @@ def wti(z:list[float],i:int,m:float,k:int):
         return 0
     numerator= calc_ez(z[i],m,k,i)
     denominator=sum([calc_ez(z[j],m,k) for j in range(len(z))])
-    return numerator/denominator   
+    return numerator/denominator        
