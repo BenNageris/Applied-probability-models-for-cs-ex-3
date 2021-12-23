@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 # TODO: change this initialization to parameters
@@ -109,9 +111,7 @@ class EM(object):
         m_arr=np.column_stack(a)
         exponent=z-m_arr
         #prune all elements smaller from k
-        exponent=np.where(exponent<-k,0,exponent)
-        e_mat=np.exp(exponent)
-        #sum by rows
+        e_mat=np.where(exponent<-k,0,np.exp(exponent))
         e_sum=np.sum(e_mat,axis=1)
         e_mat=e_mat/np.column_stack([e_sum for i in range(e_mat.shape[1])])
         return e_mat
