@@ -45,7 +45,7 @@ class Document(object):
 
 
 class EM(object):
-    def __init__(self, documents, all_develop_documents, clusters_number=9, epsilon=EPSILON, lambda_value=2):
+    def __init__(self, documents, all_develop_documents, topics, clusters_number=9, epsilon=EPSILON, lambda_value=2):
         self.clusters_number = clusters_number
         self.number_of_documents = len(documents)
         self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
@@ -55,6 +55,7 @@ class EM(object):
         self.alpha = np.zeros((self.clusters_number, 1))
         self.epsilon = epsilon
         self.lambda_value = lambda_value
+        self.topic2index = {topic: t for t, topic in enumerate(topics)}
 
         # n_t_k - frequency of the word k in document t
         self.n_t_k = np.zeros((self.number_of_documents, self.vocabulary_size))
@@ -100,17 +101,14 @@ class EM(object):
 
     def m(self, z_mat):
         # find max z for each classification
-        self.m_vector = np.max(z_mat, axis=1)  # |document| x |1|
+        self.m_vector = np.max(z_mat, axis=1).reshape((self.number_of_documents, 1))  # |document| x |1|
         return self.m_vector
 
     def e_step(self, k=10):
         print("E_step")
         z_mat = self.z()
         m_vec = self.m(z_mat)
-        a = [m_vec for i in range(z_mat.shape[1])]
-        # use vector m to build matrix the shape of z
-        m_arr = np.column_stack(a)
-        exponent = z_mat - m_arr
+        exponent = z_mat - m_vec
         # prune all elements smaller from k
         e_mat = np.where(exponent < -k, 0, np.exp(exponent))
         e_sum = np.sum(e_mat, axis=1)
@@ -118,26 +116,41 @@ class EM(object):
         return e_mat
 
     def log_likelihood(self, k=10):
-        a = [self.m_vector for i in range(self.z_matrix.shape[1])]
-        # use vector m to build matrix the shape of z
-        m_arr = np.column_stack(a)
-        boolean_table = self.z_matrix - m_arr >= -k
-        sum_array = np.zeros((self.number_of_documents, 1))
+        boolean_table = self.z_matrix - self.m_vector >= -k
+        array = np.zeros((self.number_of_documents, 1))
         for t in range(self.number_of_documents):
             for i in range(self.clusters_number):
                 if boolean_table[t][i]:
-                    sum_array += np.exp(self.z_matrix[t][i] - self.m_vector[t])
-        return np.log(sum_array) + self.m_vector
+                    array[t] += np.exp(self.z_matrix[t][i] - self.m_vector[t])
+        return np.sum(np.log(array) + self.m_vector)
 
     def perplexity(self):
-        log_likelihood_vector = self.log_likelihood()
-        return np.power(2, -1 * log_likelihood_vector / np.sum(self.nt))
+        log_likelihood = self.log_likelihood()
+        return np.power(2, -1 * log_likelihood / np.sum(self.nt))
+
+    def confusion_matrix(self):
+        document_cluster = np.argmax(self.w_t_i, axis=1)
+        confusion_matrix_ = np.zeros((self.clusters_number, self.clusters_number))
+        for document in self.document2t:
+            t = self.document2t[document]
+            i = document_cluster[t]
+            for topic in document.topics:
+                j = self.topic2index[topic]
+                confusion_matrix_[i][j] += 1
+        return confusion_matrix_
 
     def get_p_i_k(self):
         return self.p_i_k
 
     def get_alpha(self):
         return self.alpha
+
+    def train(self):
+        # todo: change to while loop until diff-perplexity less than EPSILON
+        for _ in range(10):
+            self.e_step()
+            self.m_step()
+            print(self.perplexity())
 
 
 def extract_topics(topics_file_path):
@@ -185,13 +198,16 @@ def initialization_process(develop_file_path, topics_file_path):
 
 def run():
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
-    em_model = EM(documents=documents, all_develop_documents=all_develop_documents, clusters_number=CLUSTER_NUMBERS,
+    em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
+                  clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
     # print(np.max(em_model.p_i_k))
     em_model.e_step()
+    # em_model.train()
     print(em_model.perplexity())
     em_model.m_step()
     em_model.e_step()
+    # em_model.train()
     print(em_model.perplexity())
 
 
