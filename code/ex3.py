@@ -111,8 +111,8 @@ class EM(object):
         # prune all elements smaller from k
         e_mat = np.where(exponent < -k, 0, np.exp(exponent))
         e_sum = np.sum(e_mat, axis=1)
-        e_mat = e_mat / np.column_stack([e_sum for i in range(e_mat.shape[1])])
-        return e_mat
+        self.w_t_i = e_mat / np.column_stack([e_sum for i in range(e_mat.shape[1])])
+        # return self.w_t_i
 
     def log_likelihood(self, k=10):
         boolean_table = self.z_matrix - self.m_vector >= -k
