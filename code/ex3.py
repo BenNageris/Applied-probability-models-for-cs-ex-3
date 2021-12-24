@@ -95,25 +95,26 @@ class EM(object):
         logged_alpha = np.log(self.alpha)  # |cluster| x 1
         right_hand = np.dot(self.n_t_k, np.log(self.p_i_k.T))  # |document| x |cluster|
         left_hand = np.broadcast_to(logged_alpha, (self.number_of_documents, self.clusters_number))
-        self.z = right_hand + left_hand  # |document| x |cluster|
-        return self.z
-    def m(self):
+        self.z_matrix = right_hand + left_hand  # |document| x |cluster|
+        return self.z_matrix
+
+    def m(self, z_mat):
         # find max z for each classification
-        self.m = np.max(self.z, axis=1)  # |document| x |1|
-        print(self.m)
-        return self.m
-    def e_step(self,k=10):
+        self.m_vector = np.max(z_mat, axis=1)  # |document| x |1|
+        return self.m_vector
+
+    def e_step(self, k=10):
         print("E_step")
-        z=self.z()
-        m=self.m()
-        a=[m for i in range(z.shape[1])]
-        #use vector m to build matrix the shape of z
-        m_arr=np.column_stack(a)
-        exponent=z-m_arr
-        #prune all elements smaller from k
-        e_mat=np.where(exponent<-k,0,np.exp(exponent))
-        e_sum=np.sum(e_mat,axis=1)
-        e_mat=e_mat/np.column_stack([e_sum for i in range(e_mat.shape[1])])
+        z_mat = self.z()
+        m_vec = self.m(z_mat)
+        a = [m_vec for i in range(z_mat.shape[1])]
+        # use vector m to build matrix the shape of z
+        m_arr = np.column_stack(a)
+        exponent = z_mat - m_arr
+        # prune all elements smaller from k
+        e_mat = np.where(exponent < -k, 0, np.exp(exponent))
+        e_sum = np.sum(e_mat, axis=1)
+        e_mat = e_mat / np.column_stack([e_sum for i in range(e_mat.shape[1])])
         return e_mat
 
     def get_p_i_k(self):
@@ -172,7 +173,6 @@ def run():
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
     # print(np.max(em_model.p_i_k))
     em_model.e_step()
-
 
 if __name__ == "__main__":
     run()
