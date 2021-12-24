@@ -12,8 +12,8 @@ CLUSTER_NUMBERS = 9
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
--EPSILON = 0.000001
--LAMBDA_VALUE = 2
+EPSILON = 0.000001
+LAMBDA_VALUE = 2
 
 
 class Document(object):
