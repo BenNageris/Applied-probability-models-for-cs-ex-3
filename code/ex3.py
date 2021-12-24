@@ -12,8 +12,8 @@ CLUSTER_NUMBERS = 9
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
-EPSILON = 0.000001
-LAMBDA_VALUE = 2
+-EPSILON = 0.000001
+-LAMBDA_VALUE = 2
 
 
 class Document(object):
@@ -32,8 +32,10 @@ class Document(object):
             del self.word_to_freq[key]
 
     def __len__(self):
-        # TODO: check if length of document (n_t) is number of unique words or total number of words!
-        return len(self.word_to_freq)
+        sum=0
+        for freq in self.word_to_freq.values():
+            sum=sum+freq
+        return sum
 
     def __getitem__(self, word):
         if word not in self.word_to_freq.keys():
@@ -65,7 +67,6 @@ class EM(object):
             for word in self.word2k:
                 self.n_t_k[t][self.word2k[word]] = document[word]
             self.nt[t] = len(document)
-
         # initializing the model
         self.w_t_i = np.zeros((self.number_of_documents, self.clusters_number))
         # 1st to cluster 1, 2nd to cluster 2 ... idx % cluster number initialization
@@ -77,14 +78,12 @@ class EM(object):
 
     def m_step(self):
         # alpha computation
-
         self.alpha = np.zeros((self.clusters_number, 1))
         # summing by column (column is classification)
         self.alpha = np.sum(self.w_t_i, axis=0) / self.number_of_documents
         self.alpha = np.maximum(self.alpha, self.epsilon)
         # if we changed to at least one of the alphas we need to normalize in order it to be summed up to 1
         self.alpha /= np.sum(self.alpha)
-
         # p_i_k is the probability for word k when we assume we re in category i : p(w_k | c_i)
         numerator = np.dot(self.w_t_i.T, self.n_t_k) + self.lambda_value  # -> output size |cluster| X |vocab|
         denominator = np.dot(self.w_t_i.T,
@@ -97,23 +96,24 @@ class EM(object):
         left_hand = np.broadcast_to(logged_alpha, (self.number_of_documents, self.clusters_number))
         self.z = right_hand + left_hand  # |document| x |cluster|
         return self.z
+
     def m(self):
         # find max z for each classification
         self.m = np.max(self.z, axis=1)  # |document| x |1|
-        print(self.m)
         return self.m
-    def e_step(self,k=10):
+
+    def e_step(self, k=10):
         print("E_step")
-        z=self.z()
-        m=self.m()
-        a=[m for i in range(z.shape[1])]
-        #use vector m to build matrix the shape of z
-        m_arr=np.column_stack(a)
-        exponent=z-m_arr
-        #prune all elements smaller from k
-        e_mat=np.where(exponent<-k,0,np.exp(exponent))
-        e_sum=np.sum(e_mat,axis=1)
-        e_mat=e_mat/np.column_stack([e_sum for i in range(e_mat.shape[1])])
+        z = self.z()
+        m = self.m()
+        a = [m for i in range(z.shape[1])]
+        # use vector m to build matrix the shape of z
+        m_arr = np.column_stack(a)
+        exponent = z - m_arr
+        # prune all elements smaller from k
+        e_mat = np.where(exponent < -k, 0, np.exp(exponent))
+        e_sum = np.sum(e_mat, axis=1)
+        e_mat = e_mat / np.column_stack([e_sum for i in range(e_mat.shape[1])])
         return e_mat
 
     def get_p_i_k(self):
