@@ -117,6 +117,22 @@ class EM(object):
         e_mat = e_mat / np.column_stack([e_sum for i in range(e_mat.shape[1])])
         return e_mat
 
+    def log_likelihood(self, k=10):
+        a = [self.m_vector for i in range(self.z_matrix.shape[1])]
+        # use vector m to build matrix the shape of z
+        m_arr = np.column_stack(a)
+        boolean_table = self.z_matrix - m_arr >= -k
+        sum_array = np.zeros((self.number_of_documents, 1))
+        for t in range(self.number_of_documents):
+            for i in range(self.clusters_number):
+                if boolean_table[t][i]:
+                    sum_array += np.exp(self.z_matrix[t][i] - self.m_vector[t])
+        return np.log(sum_array) + self.m_vector
+
+    def perplexity(self):
+        log_likelihood_vector = self.log_likelihood()
+        return np.power(2, -1 * log_likelihood_vector / np.sum(self.nt))
+
     def get_p_i_k(self):
         return self.p_i_k
 
@@ -173,6 +189,11 @@ def run():
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
     # print(np.max(em_model.p_i_k))
     em_model.e_step()
+    print(em_model.perplexity())
+    em_model.m_step()
+    em_model.e_step()
+    print(em_model.perplexity())
+
 
 if __name__ == "__main__":
     run()
