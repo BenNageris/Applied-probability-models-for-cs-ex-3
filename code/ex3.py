@@ -145,12 +145,14 @@ class EM(object):
         return self.alpha
 
     def train(self):
-        # todo: change to while loop until diff-perplexity less than EPSILON
-        for _ in range(10):
+        prev_prep = float('inf')
+        cur_prep = float('inf')
+        while prev_prep-cur_prep > self.epsilon or cur_prep == float('inf'):
             self.e_step()
             self.m_step()
-            print(self.perplexity())
-
+            prev_prep = cur_prep
+            cur_prep = self.perplexity()
+            print(cur_prep)
 
 def extract_topics(topics_file_path):
     topics = set()
@@ -200,13 +202,7 @@ def run():
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
                   clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
-    # print(np.max(em_model.p_i_k))
-    em_model.e_step()
-    # em_model.train()
-    print(em_model.perplexity())
-    em_model.m_step()
-    em_model.e_step()
-    # em_model.train()
+    em_model.train()
     print(em_model.perplexity())
 
 
