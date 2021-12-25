@@ -9,11 +9,12 @@ topics_file_path = "../topics.txt"
 # CONST
 RARE_WORDS_THRESHOLD = 3
 CLUSTER_NUMBERS = 9
+K = 10
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
 EPSILON = 0.000001
-LAMBDA_VALUE = 2
+LAMBDA_VALUE = 0.5
 
 
 class Document(object):
@@ -32,10 +33,11 @@ class Document(object):
             del self.word_to_freq[key]
 
     def __len__(self):
-        sum=0
-        for freq in self.word_to_freq.values():
-            sum=sum+freq
-        return sum
+        return len(self.word_to_freq)
+        # sum = 0
+        # for freq in self.word_to_freq.values():
+        #     sum = sum + freq
+        # return sum
 
     def __getitem__(self, word):
         if word not in self.word_to_freq.keys():
@@ -47,7 +49,8 @@ class Document(object):
 
 
 class EM(object):
-    def __init__(self, documents, all_develop_documents, topics, clusters_number=9, epsilon=EPSILON, lambda_value=2):
+    def __init__(self, documents, all_develop_documents, topics, clusters_number=9, epsilon=EPSILON, lambda_value=2,
+                 k=10):
         self.clusters_number = clusters_number
         self.number_of_documents = len(documents)
         self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
@@ -58,7 +61,7 @@ class EM(object):
         self.epsilon = epsilon
         self.lambda_value = lambda_value
         self.topic2index = {topic: t for t, topic in enumerate(topics)}
-
+        self.topics = topics
         # n_t_k - frequency of the word k in document t
         self.n_t_k = np.zeros((self.number_of_documents, self.vocabulary_size))
         # dictionary represents length of document t
@@ -69,6 +72,7 @@ class EM(object):
                 self.n_t_k[t][self.word2k[word]] = document[word]
             self.nt[t] = len(document)
         # initializing the model
+        self.k = k
         self.w_t_i = np.zeros((self.number_of_documents, self.clusters_number))
         # 1st to cluster 1, 2nd to cluster 2 ... idx % cluster number initialization
         for i in range(self.number_of_documents):
@@ -99,23 +103,24 @@ class EM(object):
         return self.z_matrix
 
     def m(self, z_mat):
+        print("M_step")
         # find max z for each classification
         self.m_vector = np.max(z_mat, axis=1).reshape((self.number_of_documents, 1))  # |document| x |1|
         return self.m_vector
 
-    def e_step(self, k=10):
+    def e_step(self):
         print("E_step")
         z_mat = self.z()
         m_vec = self.m(z_mat)
         exponent = z_mat - m_vec
         # prune all elements smaller from k
-        e_mat = np.where(exponent < -k, 0, np.exp(exponent))
+        e_mat = np.where(exponent < (-1) * self.k, 0, np.exp(exponent))
         e_sum = np.sum(e_mat, axis=1)
         self.w_t_i = e_mat / np.column_stack([e_sum for i in range(e_mat.shape[1])])
         # return self.w_t_i
 
-    def log_likelihood(self, k=10):
-        boolean_table = self.z_matrix - self.m_vector >= -k
+    def log_likelihood(self):
+        boolean_table = self.z_matrix - self.m_vector >= (-1) * self.k
         array = np.zeros((self.number_of_documents, 1))
         for t in range(self.number_of_documents):
             for i in range(self.clusters_number):
@@ -129,14 +134,20 @@ class EM(object):
 
     def confusion_matrix(self):
         document_cluster = np.argmax(self.w_t_i, axis=1)
-        confusion_matrix_ = np.zeros((self.clusters_number, self.clusters_number))
+        confusion_matrix_ = np.zeros((self.clusters_number, self.clusters_number + 1))
         for document in self.document2t:
             t = self.document2t[document]
             i = document_cluster[t]
             for topic in document.topics:
                 j = self.topic2index[topic]
                 confusion_matrix_[i][j] += 1
-        return confusion_matrix_
+                confusion_matrix_[i][self.clusters_number] += 1
+        return confusion_matrix_[confusion_matrix_[:, self.clusters_number].argsort()[::-1]]
+
+    def print_confusion_matrix(self):
+        confusion_matrix_ = self.confusion_matrix()
+        print(self.topics)
+        print(confusion_matrix_)
 
     def get_p_i_k(self):
         return self.p_i_k
@@ -147,20 +158,21 @@ class EM(object):
     def train(self):
         prev_prep = float('inf')
         cur_prep = float('inf')
-        while prev_prep-cur_prep > self.epsilon or cur_prep == float('inf'):
+        while prev_prep - cur_prep > self.epsilon or cur_prep == float('inf'):
             self.e_step()
             self.m_step()
             prev_prep = cur_prep
             cur_prep = self.perplexity()
             print(cur_prep)
 
+
 def extract_topics(topics_file_path):
-    topics = set()
+    topics = []
     with open(topics_file_path, "r") as topics_file:
         for line in topics_file.readlines():
             striped_line = line.strip()
-            if 0 != len(striped_line):
-                topics.add(striped_line)
+            if 0 != len(striped_line) and striped_line not in topics:
+                topics.append(striped_line)
     return topics
 
 
@@ -201,9 +213,9 @@ def run():
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
                   clusters_number=CLUSTER_NUMBERS,
-                  epsilon=EPSILON, lambda_value=LAMBDA_VALUE)
+                  epsilon=EPSILON, lambda_value=LAMBDA_VALUE, k=K)
     em_model.train()
-    print(em_model.perplexity())
+    em_model.print_confusion_matrix()
 
 
 if __name__ == "__main__":
