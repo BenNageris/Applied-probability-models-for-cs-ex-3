@@ -9,12 +9,12 @@ topics_file_path = "../topics.txt"
 # CONST
 RARE_WORDS_THRESHOLD = 3
 CLUSTER_NUMBERS = 9
-K = 10
+K = 20
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
 EPSILON = 0.000001
-LAMBDA_VALUE = 0.5
+LAMBDA_VALUE = 2
 
 
 class Document(object):
@@ -30,22 +30,25 @@ class Document(object):
 
     def remove(self, key):
         if key in self.word_to_freq:
-            del self.word_to_freq[key]
+            self.word_to_freq.pop(key)
 
     def __len__(self):
-        return len(self.word_to_freq)
-        # sum = 0
-        # for freq in self.word_to_freq.values():
-        #     sum = sum + freq
-        # return sum
+        # return len(self.word_to_freq)
+        sum = 0
+        for freq in self.word_to_freq.values():
+            sum = sum + freq
+        return sum
 
     def __getitem__(self, word):
         if word not in self.word_to_freq.keys():
-            return 0
+            self.word_to_freq[word] = 0
         return self.word_to_freq[word]
 
     def keys(self):
         return self.word_to_freq.keys()
+
+    def len_keys(self):
+        return len(self.word_to_freq)
 
 
 class EM(object):
@@ -53,15 +56,19 @@ class EM(object):
                  k=10):
         self.clusters_number = clusters_number
         self.number_of_documents = len(documents)
+        # print("number of documents:{}".format(self.number_of_documents))
         self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
         self.document2t = {document: t for t, document in enumerate(documents)}
-        self.vocabulary_size = len(all_develop_documents)
+        self.vocabulary_size = all_develop_documents.len_keys()
+        print("vocabulary_size:{}".format(self.vocabulary_size))
         self.p_i_k = np.zeros((self.clusters_number, self.vocabulary_size))
         self.alpha = np.zeros((self.clusters_number, 1))
         self.epsilon = epsilon
         self.lambda_value = lambda_value
-        self.topic2index = {topic: t for t, topic in enumerate(topics)}
-        self.topics = topics
+        self.topic2index = {topic: i for i, topic in enumerate(topics)}
+        print("topic2index:{}".format(self.topic2index))
+        # self.topics = topics
+
         # n_t_k - frequency of the word k in document t
         self.n_t_k = np.zeros((self.number_of_documents, self.vocabulary_size))
         # dictionary represents length of document t
@@ -103,13 +110,13 @@ class EM(object):
         return self.z_matrix
 
     def m(self, z_mat):
-        print("M_step")
+        # print("M_step")
         # find max z for each classification
         self.m_vector = np.max(z_mat, axis=1).reshape((self.number_of_documents, 1))  # |document| x |1|
         return self.m_vector
 
     def e_step(self):
-        print("E_step")
+        # print("E_step")
         z_mat = self.z()
         m_vec = self.m(z_mat)
         exponent = z_mat - m_vec
@@ -144,9 +151,9 @@ class EM(object):
                 confusion_matrix_[i][self.clusters_number] += 1
         return confusion_matrix_[confusion_matrix_[:, self.clusters_number].argsort()[::-1]]
 
-    def print_confusion_matrix(self):
+    def print_confusion_matrix(self, topics):
         confusion_matrix_ = self.confusion_matrix()
-        print(self.topics)
+        print(topics)
         print(confusion_matrix_)
 
     def get_p_i_k(self):
@@ -163,7 +170,18 @@ class EM(object):
             self.m_step()
             prev_prep = cur_prep
             cur_prep = self.perplexity()
-            print(cur_prep)
+            # print(cur_prep)
+
+    def accuracy(self):
+        document2classification = self.w_t_i.argmax(axis=1)
+        print(document2classification.shape, np.max(document2classification), np.min(document2classification))
+        cnt = 0
+        for document, t in self.document2t.items():
+            document_topics = [self.topic2index[topic] for topic in document.topics]
+            # print(document2classification[t], document_topics)
+            if document2classification[t] in document_topics:
+                cnt += 1
+        return cnt / self.number_of_documents
 
 
 def extract_topics(topics_file_path):
@@ -211,11 +229,13 @@ def initialization_process(develop_file_path, topics_file_path):
 
 def run():
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
+    print(topics)
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
                   clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE, k=K)
     em_model.train()
-    em_model.print_confusion_matrix()
+    # em_model.print_confusion_matrix(topics)
+    print(em_model.accuracy())
 
 
 if __name__ == "__main__":
