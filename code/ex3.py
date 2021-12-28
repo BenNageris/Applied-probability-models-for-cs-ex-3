@@ -7,14 +7,14 @@ develop_file_path = "../develop.txt"
 topics_file_path = "../topics.txt"
 
 # CONST
-RARE_WORDS_THRESHOLD = 3
+RARE_WORDS_THRESHOLD = 1
 CLUSTER_NUMBERS = 9
-K = 20
+K = 10
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
-EPSILON = 0.000001
-LAMBDA_VALUE = 2
+EPSILON = 0.000000000001
+LAMBDA_VALUE = 0.965
 
 
 class Document(object):
@@ -33,11 +33,11 @@ class Document(object):
             self.word_to_freq.pop(key)
 
     def __len__(self):
-        # return len(self.word_to_freq)
-        sum = 0
-        for freq in self.word_to_freq.values():
-            sum = sum + freq
-        return sum
+        return len(self.word_to_freq)
+        #sum = 0
+        #for freq in self.word_to_freq.values():
+        #    sum = sum + freq
+        #return sum
 
     def __getitem__(self, word):
         if word not in self.word_to_freq.keys():
@@ -58,7 +58,9 @@ class EM(object):
         self.number_of_documents = len(documents)
         # print("number of documents:{}".format(self.number_of_documents))
         self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
+        self.document_list = documents
         self.document2t = {document: t for t, document in enumerate(documents)}
+        self.doc2t_temp = [(document,t) for t, document in enumerate(documents)]
         self.vocabulary_size = all_develop_documents.len_keys()
         print("vocabulary_size:{}".format(self.vocabulary_size))
         self.p_i_k = np.zeros((self.clusters_number, self.vocabulary_size))
@@ -93,7 +95,7 @@ class EM(object):
         self.alpha = np.zeros((self.clusters_number, 1))
         # summing by column (column is classification)
         self.alpha = np.sum(self.w_t_i, axis=0) / self.number_of_documents
-        self.alpha = np.maximum(self.alpha, self.epsilon)
+        #self.alpha = np.maximum(self.alpha, self.epsilon)
         # if we changed to at least one of the alphas we need to normalize in order it to be summed up to 1
         self.alpha /= np.sum(self.alpha)
         # p_i_k is the probability for word k when we assume we re in category i : p(w_k | c_i)
@@ -105,25 +107,56 @@ class EM(object):
     def z(self):
         logged_alpha = np.log(self.alpha)  # |cluster| x 1
         right_hand = np.dot(self.n_t_k, np.log(self.p_i_k.T))  # |document| x |cluster|
-        left_hand = np.broadcast_to(logged_alpha, (self.number_of_documents, self.clusters_number))
+        #left_hand = np.broadcast_to(logged_alpha, (self.number_of_documents, self.clusters_number))
+        left_hand = np.row_stack([logged_alpha for i in range(self.number_of_documents)])
         self.z_matrix = right_hand + left_hand  # |document| x |cluster|
         return self.z_matrix
 
     def m(self, z_mat):
         # print("M_step")
         # find max z for each classification
+        print(z_mat)
+        print(np.max(z_mat, axis=1))
+        print(np.max(z_mat, axis=1).shape)
         self.m_vector = np.max(z_mat, axis=1).reshape((self.number_of_documents, 1))  # |document| x |1|
         return self.m_vector
+    def E_step(self) -> np.ndarray:
+        #self.z = np.dot(self.n_t_k, np.log(self.p_i_k)) + \
+        #         np.broadcast_to(self.alpha, (self.clusters_number, self.number_of_documents)).T
+        #self.m = np.max(self.z, axis=1).reshape((self.number_of_documents, 1))
+        z = self.z()
+        m = self.m(self.z)
+        for i in range(m.shape[0]):
+            for j in range(z.shape[1]):
+                z[i][j] = z[i][j]-m[i]
 
+        boolean_table = z < -1*K
+        # self.z -= self.m
+        for t in range(self.number_of_documents):
+            for i in range(self.clusters_number):
+                if boolean_table[t][i]:
+                    self.w_t_i[t][i] = 0
+                else:
+                    self.w_t_i[t][i] = np.exp(self.z[t][i] - self.m[t])
+            self.w_t_i[t] / np.sum(self.w_t_i[t])
+
+        return self.w_t_i
     def e_step(self):
         # print("E_step")
-        z_mat = self.z()
-        m_vec = self.m(z_mat)
-        exponent = z_mat - m_vec
+        z = self.z()
+        m = self.m(z)
+        for i in range(m.shape[0]):
+            for j in range(z.shape[1]):
+                z[i][j] = z[i][j]-m[i]
+        z = z/4
         # prune all elements smaller from k
-        e_mat = np.where(exponent < (-1) * self.k, 0, np.exp(exponent))
+        e_mat = np.where(z < (-1) * self.k, np.exp(z), np.exp(z))
         e_sum = np.sum(e_mat, axis=1)
-        self.w_t_i = e_mat / np.column_stack([e_sum for i in range(e_mat.shape[1])])
+        #print(e_mat/ np.column_stack([e_sum for i in range(e_mat.shape[1])]))
+        for i in range(e_mat.shape[0]):
+            e_mat[i]/=e_sum[i]
+        print(e_mat)
+        self.w_t_i = e_mat
         # return self.w_t_i
 
     def log_likelihood(self):
@@ -163,24 +196,58 @@ class EM(object):
         return self.alpha
 
     def train(self):
+        print(self.accuracy())
         prev_prep = float('inf')
         cur_prep = float('inf')
         while prev_prep - cur_prep > self.epsilon or cur_prep == float('inf'):
             self.e_step()
             self.m_step()
+            print("acc",self.accuracy())
+            print("likelihood",self.log_likelihood())
             prev_prep = cur_prep
             cur_prep = self.perplexity()
-            # print(cur_prep)
+            print("cur_prep",cur_prep)
 
     def accuracy(self):
+        #print(self.w_t_i)
+        print(self.topic2index)
+        document2classification = self.w_t_i.argmax(axis=1)
+        #print(document2classification)
+        idx = 0
+        hit = 0
+        for i in range(len(self.document_list)):
+           topics= self.document_list[i].topics
+           topics_idx=[self.topic2index[topic] for topic in topics]
+           #print(topics)
+           #print(topics_idx)
+           #print(document2classification[i])
+           if document2classification[i] in topics_idx:
+               hit=hit+1
+           idx=idx+1
+        #print(self.document_list[0].topics)
+        #print("hit",hit)
+        #print("idx",idx)
+        return hit/idx
+
+    def accuracy2(self):
         document2classification = self.w_t_i.argmax(axis=1)
         print(document2classification.shape, np.max(document2classification), np.min(document2classification))
+        idx=0
         cnt = 0
+        print(self.topic2index.items())
+
         for document, t in self.document2t.items():
             document_topics = [self.topic2index[topic] for topic in document.topics]
             # print(document2classification[t], document_topics)
             if document2classification[t] in document_topics:
                 cnt += 1
+            print("idx", idx)
+            print("cnt", cnt)
+            print("document2classification[t]",document2classification[t])
+            print("document_topics",document_topics)
+            print("pred",document2classification[idx])
+            print("real",document.topics)
+            idx=idx+1
         return cnt / self.number_of_documents
 
 
