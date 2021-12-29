@@ -13,8 +13,8 @@ K = 10
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
-EPSILON = 0.00001
-LAMBDA_VALUE = 2
+EPSILON = 0.001
+LAMBDA_VALUE = 1.5
 
 
 class Document(object):
