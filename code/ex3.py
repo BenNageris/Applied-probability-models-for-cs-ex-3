@@ -1,5 +1,5 @@
 import math
-
+from collections import Counter
 import numpy as np
 
 # TODO: change this initialization to parameters
@@ -9,11 +9,11 @@ topics_file_path = "../topics.txt"
 # CONST
 RARE_WORDS_THRESHOLD = 3
 CLUSTER_NUMBERS = 9
-K = 20
+K = 10
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
-EPSILON = 0.000001
+EPSILON = 0.00001
 LAMBDA_VALUE = 2
 
 
@@ -47,6 +47,9 @@ class Document(object):
     def keys(self):
         return self.word_to_freq.keys()
 
+    def values(self):
+        return self.word_to_freq.values()
+
     def len_keys(self):
         return len(self.word_to_freq)
 
@@ -56,18 +59,16 @@ class EM(object):
                  k=10):
         self.clusters_number = clusters_number
         self.number_of_documents = len(documents)
+        self.all_develop_documents = all_develop_documents
         # print("number of documents:{}".format(self.number_of_documents))
         self.word2k = {word: k for k, word in enumerate(all_develop_documents.keys())}
         self.document2t = {document: t for t, document in enumerate(documents)}
         self.vocabulary_size = all_develop_documents.len_keys()
-        print("vocabulary_size:{}".format(self.vocabulary_size))
         self.p_i_k = np.zeros((self.clusters_number, self.vocabulary_size))
         self.alpha = np.zeros((self.clusters_number, 1))
         self.epsilon = epsilon
         self.lambda_value = lambda_value
         self.topic2index = {topic: i for i, topic in enumerate(topics)}
-        print("topic2index:{}".format(self.topic2index))
-        # self.topics = topics
 
         # n_t_k - frequency of the word k in document t
         self.n_t_k = np.zeros((self.number_of_documents, self.vocabulary_size))
@@ -135,9 +136,11 @@ class EM(object):
                     array[t] += np.exp(self.z_matrix[t][i] - self.m_vector[t])
         return np.sum(np.log(array) + self.m_vector)
 
-    def perplexity(self):
+    def perplexity(self, log_likelihood_list=None):
         log_likelihood = self.log_likelihood()
-        return np.power(2, -1 * log_likelihood / np.sum(self.nt))
+        if log_likelihood_list is not None:
+            log_likelihood_list.append(log_likelihood)
+        return np.power(np.e, ((-1 / np.sum(self.nt)) * log_likelihood))
 
     def confusion_matrix(self):
         document_cluster = np.argmax(self.w_t_i, axis=1)
@@ -156,30 +159,53 @@ class EM(object):
         print(topics)
         print(confusion_matrix_)
 
-    def get_p_i_k(self):
-        return self.p_i_k
-
-    def get_alpha(self):
-        return self.alpha
-
     def train(self):
         prev_prep = float('inf')
         cur_prep = float('inf')
+        perplexity_list = []
+        log_likelihood_list = []
         while prev_prep - cur_prep > self.epsilon or cur_prep == float('inf'):
             self.e_step()
             self.m_step()
             prev_prep = cur_prep
-            cur_prep = self.perplexity()
-            # print(cur_prep)
+            cur_prep = self.perplexity(log_likelihood_list=log_likelihood_list)
+            perplexity_list.append(cur_prep)
+        print(log_likelihood_list)
+        print(perplexity_list)
+
+    def cluster2topic(self, document2cluster):
+        topic_index2topic_counter = self.count_topics_in_cluster(document2cluster)
+
+        def extract_topic_from_counter(topic_counter_arg):
+            if len(topic_counter_arg) != 1:
+                return None
+            return topic_counter_arg[0][0]
+
+        cluster2topicdict = {}
+        for i in topic_index2topic_counter:
+            counter_topics = topic_index2topic_counter[i]
+            most_common_topic = counter_topics.most_common(1)
+            cluster2topicdict[i] = extract_topic_from_counter(most_common_topic)
+        return cluster2topicdict
+
+    def count_topics_in_cluster(self, document2cluster):
+        cluster2topics = {i: Counter() for i in range(self.clusters_number)}
+        for document in self.document2t:
+            t = self.document2t[document]
+            # the cluster model predicted
+            cluster = document2cluster[t]
+            # update cluster counter for each of the real topic
+            cluster2topics[cluster].update(document.topics)
+        return cluster2topics
 
     def accuracy(self):
         document2classification = self.w_t_i.argmax(axis=1)
-        print(document2classification.shape, np.max(document2classification), np.min(document2classification))
+        cluster2topic = self.cluster2topic(document2classification)
         cnt = 0
         for document, t in self.document2t.items():
-            document_topics = [self.topic2index[topic] for topic in document.topics]
-            # print(document2classification[t], document_topics)
-            if document2classification[t] in document_topics:
+            cluster = document2classification[t]
+            topic = cluster2topic[cluster]
+            if topic in document.topics:
                 cnt += 1
         return cnt / self.number_of_documents
 
@@ -229,7 +255,6 @@ def initialization_process(develop_file_path, topics_file_path):
 
 def run():
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
-    print(topics)
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
                   clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE, k=K)
