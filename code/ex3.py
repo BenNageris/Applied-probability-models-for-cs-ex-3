@@ -1,3 +1,4 @@
+import itertools
 import math
 from collections import Counter
 import numpy as np
@@ -10,12 +11,12 @@ topics_file_path = "../topics.txt"
 # CONST
 RARE_WORDS_THRESHOLD = 3
 CLUSTER_NUMBERS = 9
-K = 10
+K = 5
 
 # TODO: When we will finish the implementation we need to normalize those arguments
 
-EPSILON = 0.001
-LAMBDA_VALUE = 1.5
+EPSILON = 0.1
+LAMBDA_VALUE = 1
 
 
 class Document(object):
@@ -287,6 +288,30 @@ def initialization_process(develop_file_path, topics_file_path):
     return topics, documents, all_develop_documents
 
 
+def find_best_hyperparams():
+    topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
+    def get_accuracy(eps_val,lambda_val,k_val):
+        em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
+                  clusters_number=CLUSTER_NUMBERS,
+                  epsilon=eps_val, lambda_value=lambda_val, k=k_val)
+        em_model.train()
+        return em_model.accuracy()
+    eps_list = [0.1, 0.01, 0.001, 0.0001]
+    l_list = [0.5, 1, 1.5, 2]
+    k_list = [5, 10, 15]
+    max = float('-inf')
+    best_param=[0,0,0]
+    for eps,l,k in list(itertools.product(eps_list, l_list, k_list)):
+        print("eps={0} lambda={1} k={2}".format(eps,l,k))
+        acc=get_accuracy(eps,l,k)
+        print("acc={0}".format(acc))
+        if acc>max:
+            best_param=[eps,l,k]
+            max=acc
+            print("new best",best_param)
+    print("best param",best_param)
+    print("best param are: eps={0} lambda={1} k={2}".format(best_param[0],best_param[1],best_param[2]))
+
 def run():
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
@@ -299,3 +324,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+    #find_best_hyperparams()
