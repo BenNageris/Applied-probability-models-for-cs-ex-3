@@ -160,6 +160,27 @@ class EM(object):
         print(topics)
         print(confusion_matrix_)
 
+    def print_histograms(self, topics):
+        confusion_matrix = self.confusion_matrix()
+        for i in range(len(topics)):
+            self.print_histogram(topics,confusion_matrix, i)
+
+    def print_histogram(self, labels, confusion_matrix, index):
+        fig, ax = plt.subplots()
+        cluster = labels[np.argmax(confusion_matrix[index][0:-1])]
+        means = confusion_matrix[index][0:-1]
+        x = np.arange(len(labels))
+        width = 0.35
+        rects1 = ax.bar(x, means, width)
+        ax.set_ylabel('Scores')
+        ax.set_title("cluster {0}-{1}".format(index, cluster))
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels(labels)
+        ax.legend()
+        ax.bar_label(rects1, padding=3)
+        fig.tight_layout()
+        plt.show()
+
     def train(self):
         prev_prep = float('inf')
         cur_prep = float('inf')
@@ -274,7 +295,7 @@ def run():
     em_model.train()
     print(em_model.accuracy())
     em_model.print_confusion_matrix(topics)
-
+    em_model.print_histograms(topics)
 
 if __name__ == "__main__":
     run()
