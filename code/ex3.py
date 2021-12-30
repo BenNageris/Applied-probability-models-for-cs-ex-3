@@ -1,6 +1,7 @@
 import math
 from collections import Counter
 import numpy as np
+import matplotlib.pyplot as plt
 
 # TODO: change this initialization to parameters
 develop_file_path = "../develop.txt"
@@ -164,7 +165,9 @@ class EM(object):
         cur_prep = float('inf')
         perplexity_list = []
         log_likelihood_list = []
+        iteration = 0
         while prev_prep - cur_prep > self.epsilon or cur_prep == float('inf'):
+            iteration += 1
             self.e_step()
             self.m_step()
             prev_prep = cur_prep
@@ -172,6 +175,15 @@ class EM(object):
             perplexity_list.append(cur_prep)
         print(log_likelihood_list)
         print(perplexity_list)
+        self.plot(range(iteration), log_likelihood_list, ['iteration_number', 'log-likelihood'], "Log-Likelihood")
+        self.plot(range(iteration), perplexity_list, ['iteration_number', 'perplexity'], "Perplexity")
+
+    def plot(self,x, y, labels, title):
+        plt.plot(x, y)
+        plt.xlabel(labels[0])
+        plt.ylabel(labels[1])
+        plt.title(title)
+        plt.show()
 
     def cluster2topic(self, document2cluster):
         topic_index2topic_counter = self.count_topics_in_cluster(document2cluster)
@@ -241,6 +253,7 @@ def read_develop_file(develop_file_path):
     return documents, all_develop_documents
 
 
+
 def initialization_process(develop_file_path, topics_file_path):
     topics = extract_topics(topics_file_path)
     documents, all_develop_documents = read_develop_file(develop_file_path)
@@ -259,8 +272,8 @@ def run():
                   clusters_number=CLUSTER_NUMBERS,
                   epsilon=EPSILON, lambda_value=LAMBDA_VALUE, k=K)
     em_model.train()
-    # em_model.print_confusion_matrix(topics)
     print(em_model.accuracy())
+    em_model.print_confusion_matrix(topics)
 
 
 if __name__ == "__main__":
