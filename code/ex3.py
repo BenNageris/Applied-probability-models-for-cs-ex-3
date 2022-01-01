@@ -12,7 +12,7 @@ topics_file_path = "../topics.txt"
 RARE_WORDS_THRESHOLD = 3
 CLUSTER_NUMBERS = 9
 K = 5
-
+HALT_THRESHOLD = 0.1
 # TODO: When we will finish the implementation we need to normalize those arguments
 
 EPSILON = 0.1
@@ -188,7 +188,7 @@ class EM(object):
         perplexity_list = []
         log_likelihood_list = []
         iteration = 0
-        while prev_prep - cur_prep > self.epsilon or cur_prep == float('inf'):
+        while prev_prep - cur_prep > HALT_THRESHOLD or cur_prep == float('inf'):
             iteration += 1
             self.e_step()
             self.m_step()
