@@ -1,12 +1,10 @@
 import itertools
-import math
+import sys
 from collections import Counter
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
-# TODO: change this initialization to parameters
-develop_file_path = "../develop.txt"
-topics_file_path = "../topics.txt"
 
 # CONST
 RARE_WORDS_THRESHOLD = 3
@@ -164,7 +162,7 @@ class EM(object):
     def print_histograms(self, topics):
         confusion_matrix = self.confusion_matrix()
         for i in range(len(topics)):
-            self.print_histogram(topics,confusion_matrix, i)
+            self.print_histogram(topics, confusion_matrix, i)
 
     def print_histogram(self, labels, confusion_matrix, index):
         fig, ax = plt.subplots()
@@ -200,7 +198,7 @@ class EM(object):
         self.plot(range(iteration), log_likelihood_list, ['iteration_number', 'log-likelihood'], "Log-Likelihood")
         self.plot(range(iteration), perplexity_list, ['iteration_number', 'perplexity'], "Perplexity")
 
-    def plot(self,x, y, labels, title):
+    def plot(self, x, y, labels, title):
         plt.plot(x, y)
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
@@ -275,7 +273,6 @@ def read_develop_file(develop_file_path):
     return documents, all_develop_documents
 
 
-
 def initialization_process(develop_file_path, topics_file_path):
     topics = extract_topics(topics_file_path)
     documents, all_develop_documents = read_develop_file(develop_file_path)
@@ -288,31 +285,34 @@ def initialization_process(develop_file_path, topics_file_path):
     return topics, documents, all_develop_documents
 
 
-def find_best_hyperparams():
+def find_best_hyperparams(develop_file_path, topics_file_path):
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
-    def get_accuracy(eps_val,lambda_val,k_val):
+
+    def get_accuracy(eps_val, lambda_val, k_val):
         em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
-                  clusters_number=CLUSTER_NUMBERS,
-                  epsilon=eps_val, lambda_value=lambda_val, k=k_val)
+                      clusters_number=CLUSTER_NUMBERS,
+                      epsilon=eps_val, lambda_value=lambda_val, k=k_val)
         em_model.train()
         return em_model.accuracy()
+
     eps_list = [0.1, 0.01, 0.001, 0.0001]
     l_list = [0.5, 1, 1.5, 2]
     k_list = [5, 10, 15]
     max = float('-inf')
-    best_param=[0,0,0]
-    for eps,l,k in list(itertools.product(eps_list, l_list, k_list)):
-        print("eps={0} lambda={1} k={2}".format(eps,l,k))
-        acc=get_accuracy(eps,l,k)
+    best_param = [0, 0, 0]
+    for eps, l, k in list(itertools.product(eps_list, l_list, k_list)):
+        print("eps={0} lambda={1} k={2}".format(eps, l, k))
+        acc = get_accuracy(eps, l, k)
         print("acc={0}".format(acc))
-        if acc>max:
-            best_param=[eps,l,k]
-            max=acc
-            print("new best",best_param)
-    print("best param",best_param)
-    print("best param are: eps={0} lambda={1} k={2}".format(best_param[0],best_param[1],best_param[2]))
+        if acc > max:
+            best_param = [eps, l, k]
+            max = acc
+            print("new best", best_param)
+    print("best param", best_param)
+    print("best param are: eps={0} lambda={1} k={2}".format(best_param[0], best_param[1], best_param[2]))
 
-def run():
+
+def run(develop_file_path, topics_file_path):
     topics, documents, all_develop_documents = initialization_process(develop_file_path, topics_file_path)
     em_model = EM(documents=documents, all_develop_documents=all_develop_documents, topics=topics,
                   clusters_number=CLUSTER_NUMBERS,
@@ -322,6 +322,18 @@ def run():
     em_model.print_confusion_matrix(topics)
     em_model.print_histograms(topics)
 
+
 if __name__ == "__main__":
-    run()
-    #find_best_hyperparams()
+    arguments = sys.argv[1:]
+    if len(arguments) != 2:
+        print("pass 2 arguments via argv in format develop.txt topics.txt")
+    develop_file_path = arguments[0]
+    topics_file_path = arguments[1]
+    if not os.path.exists(develop_file_path) or not os.path.isfile(develop_file_path):
+        print("Please pass right file location in develop and not : {}".format(develop_file_path))
+
+    if not os.path.exists(topics_file_path) or not os.path.isfile(topics_file_path):
+        print("Please pass right file location in topic and not : {}".format(topics_file_path))
+
+    run(develop_file_path, topics_file_path)
+    # find_best_hyperparams()
